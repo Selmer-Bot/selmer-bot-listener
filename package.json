@@ -1,0 +1,27 @@
+{
+  "name": "selmer-bot-listener",
+  "version": "1.0.0",
+  "description": "Receives Stripe webhooks",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ION606/selmer-bot-listener.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ION606/selmer-bot-listener/issues"
+  },
+  "homepage": "https://github.com/ION606/selmer-bot-listener#readme",
+  "dependencies": {
+    "body-parser": "^1.20.0",
+    "discord.js": "^13.6.0",
+    "express": "^4.18.1",
+    "mongodb": "^4.8.0",
+    "stripe": "^9.15.0"
+  }
+}
