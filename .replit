@@ -1,6 +1,6 @@
 
 hidden = [".config"]
-run = "node main.js"
+run = "node checkCal.js"
 
 [[hints]]
 regex = "Error \\[ERR_REQUIRE_ESM\\]"

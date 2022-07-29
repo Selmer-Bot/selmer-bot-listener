@@ -19,9 +19,10 @@
   "homepage": "https://github.com/ION606/selmer-bot-listener#readme",
   "dependencies": {
     "body-parser": "^1.20.0",
-    "discord.js": "^13.6.0",
+    "discord.js": "^13.9.1",
     "express": "^4.18.1",
-    "mongodb": "^4.8.0",
+    "mongodb": "^4.8.1",
+    "request": "^2.88.2",
     "stripe": "^9.15.0"
   }
 }
