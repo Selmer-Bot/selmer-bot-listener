@@ -5,7 +5,13 @@ const { MongoClient, ServerApiVersion } = require("mongodb");
 const { Client, Intents, MessageEmbed } = require('discord.js');
 const mongouri = process.env.mongooseURI;
 const token = process.env.token;
+const client = new MongoClient(mongouri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverApi: ServerApiVersion.v1,
+});
 
+const connection = client.connect();
 
 // Use body-parser to retrieve the raw body as a buffer
 const bodyParser = require("body-parser");
@@ -27,11 +33,6 @@ const bot = new Client({
   partials: ['CHANNEL']
 });
 
-bot.on('ready', async () => {
-  console.log("Bot online!");
-});
-bot.login(token);
-
 const app = express();
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -46,13 +47,7 @@ function createSubscription(obj) {
   const tier = plan.amount / 500;
   // if (tier != 1 && tier % 2 != 0) { throw `INCORRECT TIER (${tier}) from $${plan.amount}` }; //WRONG
 
-  const client = new MongoClient(mongouri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverApi: ServerApiVersion.v1,
-  });
-
-  client.connect(async (err) => {
+  connection.then(async (client) => {
     const d = new Date();
     const startDateUTC = `${d.getUTCDay()}|${d.getUTCMonth()}|${d.getUTCFullYear()}`;
     const dbo = client.db("main").collection("authorized");
@@ -62,13 +57,7 @@ function createSubscription(obj) {
 
 
 function deleteSubscription(obj) {
-  const client = new MongoClient(mongouri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverApi: ServerApiVersion.v1,
-  });
-
-  client.connect(async (err) => {
+  connection.then(async (client) => {
     const customer = obj.customer;
     const dbo = client.db("main").collection("authorized");
     dbo.updateOne({ stripeID: customer }, { $set: { startDateUTC: null, paid: false, tier: 0 } });
@@ -144,6 +133,7 @@ app.post('/reminders', async (req, res) => {
   var guild;
   var reminder;
   var timeUTC;
+  var role;
 
   try {
     // reminder = JSON.parse(reminders);
@@ -151,14 +141,47 @@ app.post('/reminders', async (req, res) => {
     for (i in reminders) {
       reminder = reminders[i];
 
-      guild = bot.guilds.cache.get(reminder.guildId);
-      user = guild.members.cache.get(reminder.userId);
+      //Make sure there are no empty fields
+      if (reminder.link == "") { reminder.link = "N/A"; }
+      if (reminder.location == "") { reminder.location = "N/A"; }
 
-      if (!user || !guild) { console.error(`Unknown user (guildId: ${reminder.guildId} userId: ${reminder.userId})`); return res.sendStatus(500); }
+      const p = new Promise((resolve, reject) => {
+        //The reminder is pinging a guild
+        if (reminder.guildId != null) {
+          guild = bot.guilds.cache.get(reminder.guildId);
+          
+          connection.then((client) => {
+            const dbo = client.db(reminder.guildId).collection('SETUP');
+            dbo.findOne({ _id: "announcement" }).then((doc) => {
+              if (!doc || !doc.role || !doc.channel) {
+                reject(null);
+                return;
+              } else {
+                user = guild.channels.cache.get(doc.channel);
+                role = guild.roles.cache.get(doc.role);
+                resolve([user, role]);
+              }
+            })
+          })
+        } else {
+          bot.users.fetch(reminder.userId).then((user) => { resolve([user, null]); })
+          // user = guild.members.cache.get(reminder.userId);
+        }
+      });
 
+    p.then((data) => {
+      user = data[0];
+      role = data[1];
+      
       timeUTC = Number(reminder.time) + Number(reminder.offset);
+      let temp = "";
+      let c = "";
+      
+      if (role != undefined) {
+        c = `${role}  `;
+      }
 
-      let temp = `${reminder.name} is coming up in <t:${timeUTC}:R> at <t:${timeUTC}:F>`;
+      temp += `***${reminder.name}*** is coming up in <t:${timeUTC}:R> on <t:${timeUTC}:F>`;
       const embd = new MessageEmbed()
         .setAuthor({ name: "Selmer Bot", url: "", iconURL: bot.user.displayAvatarURL() })
         .setTitle(temp)
@@ -166,10 +189,19 @@ app.post('/reminders', async (req, res) => {
         .addFields(
           { name: 'Time', value: `<t:${timeUTC}:F>` },
           { name: 'Location', value: `${reminder.location}` },
-          { name: 'Link', value: `${reminder.link}` }
+          { name: 'Link', value: `${reminder.link}` },
+          { name: 'Offset', value: `${reminder.offset} minutes` }
         );
 
-      user.send({ embeds: [embd] });
+      if (c != "") {
+        user.send({ content: c, embeds: [embd] });
+      } else {
+        user.send({ embeds: [embd] });
+      }
+    }).catch(() => {
+      console.error(`Unknown user (guildId: ${reminder.guildId} userId: ${reminder.userId})`);       res.sendStatus(500);
+    })
+return;
     }
 
     res.sendStatus(200);
@@ -182,8 +214,13 @@ app.post('/reminders', async (req, res) => {
 
 app.get('/', async (req, res) => {
   res.sendStatus(200);
-})
-
-const listener = app.listen(process.env.PORT, () => {
-  console.log("Your app is listening on port " + listener.address().port);
 });
+
+bot.on('ready', async () => {
+  const listener = app.listen(process.env.PORT, () => {
+    console.log("Your app is listening on port " + listener.address().port);
+  });
+  console.log("Bot online!");
+});
+
+bot.login(token);

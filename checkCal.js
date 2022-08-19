@@ -1,6 +1,9 @@
 var request = require('request');
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const mongouri = process.env.mongooseURI;
+const clientMain = new MongoClient(mongouri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+const connection = clientMain.connect();
+
 
 function getDateInMin() {
   const d = new Date();
@@ -12,33 +15,24 @@ function getDateInMin() {
 function checkCal() {
 
   try {
-    const client = new MongoClient(mongouri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-    client.connect(err => {
-      if (err) { return console.error(err); }
-
+    connection.then(client => {
       const dbo = client.db('main').collection('reminders');
 
       //Get all events happening this minute
-      //Set up the date/time
-
       const time = getDateInMin();
 
       dbo.findOne({ time: time }).then((docs) => {
         //Get All Events happening this MINUTE and put them into the following format
-        // { "0": { guildId: string, userId: string, name: string, description: string, location: string, time: string (in UTC format), offset: int (in ms) } }
-        // console.log(time, docs);
         if (!docs) { return; }
-        dbo.deleteOne({ time: time });
-        
+
         var m = {};
         for (i in docs) {
           var doc = docs[i];
           if (isNaN(Number(i))) { continue; }
 
           //Get the time out of ms
-          doc.time = time / 1000;
+          doc.time = (Number(time) + ((Number(doc.offset)/* + 1*/) * 60000)) / 1000;
           m[`${i}`] = doc;
-          //{ guildId: doc.guildId, userId: doc.userId, name: doc.name, description: doc.description, location: doc.location, time: time, offset: doc.offset }
         }
 
         var clientServerOptions = {
@@ -58,14 +52,11 @@ function checkCal() {
       });
     });
 
-    client.close();
+    // client.close();
   } catch (err) {
     console.error(err);
   }
 }
-
-//Start at exactly the minute mark
-//????
 
 
 //Make sure the app doesn't go to sleep
@@ -77,6 +68,15 @@ app.get('/', async (req, res) => {
 })
 
 const listener = app.listen(process.env.PORT, () => {
+
+  //Start at exactly the minute mark
+  while (true) {
+    let d = new Date();
+    if (d.getSeconds() == 0) {
+      break;
+    }
+  }
+
   console.log("Your app is listening on port " + listener.address().port);
   setInterval(checkCal, 60000);
 });
