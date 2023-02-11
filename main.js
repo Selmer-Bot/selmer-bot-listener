@@ -93,9 +93,9 @@ app.post("/webhooks",
     }
 
     if (!event) {
-      return res.send("Unknown webhook!");
+      return response.send("Unknown webhook!");
     }
-    
+
     // Handle the event
     switch (event.type) {
       case "customer.subscription.created":
