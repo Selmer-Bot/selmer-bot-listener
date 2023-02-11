@@ -92,6 +92,10 @@ app.post("/webhooks",
       response.status(400).send(`Webhook Error: ${err.message}`);
     }
 
+    if (!event) {
+      return res.send("Unknown webhook!");
+    }
+    
     // Handle the event
     switch (event.type) {
       case "customer.subscription.created":
@@ -215,6 +219,7 @@ return;
 app.get('/', async (req, res) => {
   res.sendStatus(200);
 });
+
 
 bot.on('ready', async () => {
   const listener = app.listen(process.env.PORT, () => {
